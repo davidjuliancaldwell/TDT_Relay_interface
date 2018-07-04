@@ -38,13 +38,27 @@ pause(1)
 disp('System armed');
 
 tank = DA.GetTankName;
-%
-% if wanting to do manual stims at the beginning
-while DA.GetTargetVal('RZ5D.condition') == 0
-    pause(0.1)
-end
+% %
+% % if wanting to do manual stims at the beginning
+% while DA.GetTargetVal('RZ5D.condition') == 0
+%     pause(0.1)
+% end
 
 %%
+
+% set target values
+% set amplitudes
+chansVec = [1 2 3 4];
+ampsVec = [1000 2000 3000 4000];
+count = 1;
+for chan = chansVec
+    DA.SetTargetVal(['RZ5D.Amp~' num2str(chan)],ampsVec(count));
+   count = count + 1; 
+end
+
+%% stimulation
+
+trialStructure = 
 
 %% When run is ended, close the connection
 
