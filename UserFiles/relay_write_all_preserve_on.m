@@ -7,6 +7,9 @@ function [] = relay_write_all_preserve_on(serialObj,phrase,numBits)
 %   serialObj - the numato relay serial object as previously established
 %   through establish_relay_connection
 %
+%   phrase - the binary vector of channels to turn on and off
+%   e.g, [1 1 1 1 0 0 0 0]. this preserves any that are already on
+%
 %   numBits - the number of bits to format the output in. This should be
 %   the number of channels on the relay (e.g. 8)
 %
