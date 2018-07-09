@@ -9,6 +9,8 @@ function [] = relay_write(serialObj,relayNum,phrase)
 %   relayNum - which relay to send the command to e.g, relayNum = 0 would
 %   be the first relay
 %
+%   phrase - the command to send to the relay, e.g, 'on'
+%
 % outputs:
 %   none
 %
