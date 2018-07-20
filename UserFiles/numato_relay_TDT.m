@@ -1,11 +1,18 @@
 %% script to have the numato's relay interface with the TDT
 % 7.3.2018 - David.J.Caldwell
 
+%% user parameters
+
+% all combinations of stimulation channels
+% define the amplitudes in uA to be tested 
+ampsVec = [100 500 1000 1500];
+
 %% Open connection with TDT and begin program
 DA = actxcontrol('TDevAcc.X');
 DA.ConnectServer('Local'); %initiates a connection with an OpenWorkbench server. The connection adds a client to the server
 pause(1)
 
+% try until a connection is established 
 while DA.CheckServerConnection ~= 1
     disp('OpenWorkbench is not connected to server. Trying again...')
     close all
@@ -38,18 +45,8 @@ pause(1)
 disp('System armed');
 
 tank = DA.GetTankName;
-% %
-% % if wanting to do manual stims at the beginning
-% while DA.GetTargetVal('RZ5D.condition') == 0
-%     pause(0.1)
-% end
 
-ampsVec = [1000 2000 3000 4000];
-
-
-%% get relays ready
-
-% clean up workspace if necessar y
+%% close any existing connections to the relays
 houseKeeping = 1;
 if houseKeeping
     % house keeping
@@ -58,50 +55,68 @@ if houseKeeping
         fclose(newobjs);
     end
 end
-%%
-% establish serial port connection
-relay1 = serial('COM4');
-relay2 = serial('COM3');
-% open serial port
-fopen(relay1);
-fopen(relay2);
-% change terminator to carriage return from line feed
-relay1.Terminator = 'CR';
-relay2.Terminator = 'CR';
+%% establish serial port connection
+relay1 = establish_relay_connection('COM4');
+relay2 = establish_relay_connection('COM5');
 % number of channels on the relay board
 numBits = 8;
+disp('connection to relays established')
+
+
 
 %% now stimulation through the relays
-% all combinations of stimulation channels
 
+% number of relays 
 numRelay = 8;
 % generate all combinations
 c = combnk(1:numRelay,2);
-desiredChannels = zeros(1,numRelay);
+desiredChannelsFirst = zeros(1,numRelay);
+desiredChannelsSecond = desiredChannelsFirst;
+
+active = 1;
+ground = 2;
 
 % close all relays to start
-relay_write_all(relay1,desiredChannels);
+relay_write_all(relay1,desiredChannelsFirst);
+relay_write_all(relay2,desiredChannelsSecond);
 
-% disarm all the stimulation channels
+%% now set appropriate settings once connected
+
+% turn on first channel stimulation
+DA.SetTargetVal(['RZ5D.ITI-mat'],ITI);
+DA.SetTargetVal(['RZ5D.NumTrains-Mat'],numTrains);
+DA.SetTargetVal(['RZ5D.PW-Mat'],PW);
+DA.SetTargetVal(['RZ5D.IPI-Mat'],IPI);
+DA.SetTargetVal(['RZ5D.PTD-Mat'],PTD);
+
+%%
+%disarm all the stimulation channels
 
 for chan = 1:numRelay
-    DA.SetTargetVal(['RZ5D.Ch~' num2str(chan) 'En'],0);
+    DA.SetTargetVal(['RZ5D.ChEnMat~' num2str(chan)],0);
 end
 
 for channelCombinations = c'
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % set the relays
-    
-    
+
     % since binary starts from the left, want to make sure that this is
     % represented appropriately.
-    channelCombinations
+    disp(['channels stimulated = ' num2str(channelCombinations')])
     channelCombinationsReversed = (numRelay + 1) - channelCombinations;
-    desiredChannels(channelCombinationsReversed) = 1;
+    desiredChannelsFirst(channelCombinationsReversed) = 1;
+    desiredChannelsSecond(numRelay + 1 - channelCombinations(ground)) = 1;
     % write all
-    relay_write_all(relay1,desiredChannels)
+    relay_write_all(relay1,desiredChannelsFirst);
+    relay_write_all(relay2,desiredChannelsSecond);
+
     % read all
-    [statusBin,statusHex] = relay_read_all(relay1,numBits)
+    [statusBin,statusHex] = relay_read_all(relay1,numBits);
+    disp(['status of relay 1 = [ ' num2str(statusBin) ' ]'])
+
+    [statusBin,statusHex] = relay_read_all(relay2,numBits);
+    disp(['status of relay 2 = [ ' num2str(statusBin) ' ]'])
+
     pause(1)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -111,10 +126,9 @@ for channelCombinations = c'
     % others
     
     for chan = channelCombinations'
-        DA.SetTargetVal(['RZ5D.Ch~' num2str(chan) 'En'],1);
+    DA.SetTargetVal(['RZ5D.ChEnMat~' num2str(chan)],1);
     end
-    
-    
+
     % go through all of the desired amplitudes
     for amp = ampsVec
         
@@ -122,36 +136,39 @@ for channelCombinations = c'
         % vector to be the desired amplitude
         
         for chan = channelCombinations'
-            DA.SetTargetVal(['RZ5D.Amp~' num2str(chan)],amp);
-            DA.SetTargetVal(['RZ5D.Amp~' num2str(chan)],amp);
+            DA.SetTargetVal(['RZ5D.Amp-Mat~' num2str(chan)],amp);
         end
         
         count = 1;
         
         DA.SetTargetVal('RZ5D.StimButton', 1);
-        pause(0.01) % pausing to make sure the stim is triggered in the TDT
+        pause(0.02) % pausing to make sure the stim is triggered in the TDT
         DA.SetTargetVal('RZ5D.StimButton', 0);
         
         % wait for stimulation to end
-        pause(6)
+        pause(7)
         
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % do the stimulation, now put them all back to being closed
     
-    desiredChannels = zeros(1,numRelay);
-    relay_write_all(relay1,desiredChannels)
+    desiredChannelsFirst = zeros(1,numRelay);
+    desiredChannelsSecond = desiredChannelsFirst;
+    relay_write_all(relay1,desiredChannelsFirst)
+    relay_write_all(relay2,desiredChannelsSecond)
     
     % disarm all the stimulation channels
     
     for chan = 1:numRelay
-        DA.SetTargetVal(['RZ5D.Ch~' num2str(chan) 'En'],0);
+    DA.SetTargetVal(['RZ5D.ChEnMat~' num2str(chan)],0);
     end
     
     
 end
-%%
+%
+disp('this stimulation run has been finished')
+
 
 %% When run is ended, close the connection
 
