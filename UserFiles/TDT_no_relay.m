@@ -4,12 +4,12 @@
 %% user parameters
 
 % define the amplitudes in uA to be tested
-ampsVec = [10 50 100 500 1000 1500 2000];
-stimsOn = [1 2]; % which channels to engage
+ampsVec = [10, 50, 250, 500, 750];
+stimsOn = [1]; % which channels to engage
 % define stimulation parameters
 PW = 1200; % us
 IPI = 498000; % us
-PTD = 10008; % ms
+PTD = 5008; % ms
 ITI = 1227; % ms
 numTrains = 1;
 
